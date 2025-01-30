@@ -14,7 +14,7 @@ echo -e "${YELLOW}YouTube: https://www.youtube.com/@TopWebsIT ${NC}"
 echo "==================================="
 
 # Update package list
-sudo apt update
+sudo apt update && sudo apt upgrade -y
 
 # Install required packages if not already installed
 REQUIRED_PACKAGES=(curl jq ca-certificates zlib1g-dev libncurses5-dev libgdbm-dev libnss3-dev git wget make build-essential pkg-config lsb-release libssl-dev libreadline-dev libffi-dev gcc screen unzip lz4)
