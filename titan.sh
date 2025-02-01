@@ -6,11 +6,9 @@ BANNER='\033[0;35m' # Magenta
 YELLOW='\033[0;33m' # Yellow
 RED='\033[0;31m'    # Red
 GREEN='\033[0;32m'  # Green
-BLUE='\033[0;34m'   # Blue
 NC='\033[0m'        # No Color
 
-# Display social details
-clear
+# Display script information
 echo "========================================"
 echo -e "${YELLOW} Script is made by TopWebs ${NC}"
 echo "-------------------------------------"
@@ -26,83 +24,71 @@ echo "======================================================="
 
 # Update system packages
 echo -e "${YELLOW}Updating and upgrading system packages...${NC}"
-sudo apt update -y && sudo apt upgrade -y
+sudo apt update -y
 
-# Install necessary dependencies
-for pkg in screen docker docker-compose; do
-    if ! command -v $pkg &> /dev/null; then
+# Install required dependencies
+for pkg in screen curl tar; do
+    if ! dpkg -s $pkg &> /dev/null; then
         echo -e "${YELLOW}Installing $pkg...${NC}"
         sudo apt install -y $pkg
     else
-        echo -e "${GREEN}$pkg is already installed. Skipping installation.${NC}"
+        echo -e "${YELLOW}$pkg is already installed, skipping installation.${NC}"
     fi
 done
 
-# Ensure user is in Docker group
-if ! groups $USER | grep -q '\bdocker\b'; then
-    echo "Adding user to Docker group..."
-    sudo groupadd docker
-    sudo usermod -aG docker $USER
-    echo -e "${YELLOW}Please restart your session for the changes to take effect.${NC}"
+# Download and extract the Titan Edge binary
+TITAN_VERSION="v0.1.20"
+TITAN_URL="https://github.com/Titannet-dao/titan-node/releases/download/${TITAN_VERSION}/titan-edge_${TITAN_VERSION}_246b9dd_linux-amd64.tar.gz"
+
+echo -e "${YELLOW}Downloading Titan Edge from GitHub...${NC}"
+wget -q $TITAN_URL -O titan-edge.tar.gz
+
+if [ $? -ne 0 ]; then
+    echo -e "${RED}Failed to download Titan Edge. Please check the URL.${NC}"
+    exit 1
 fi
 
-# Remove existing Titan Edge containers
-existing_containers=$(docker ps -a --filter "ancestor=nezha123/titan-edge" --format "{{.ID}}")
-if [ -n "$existing_containers" ]; then
-    echo -e "${YELLOW}\nStopping and removing existing containers using the image nezha123/titan-edge...${NC}"
-    docker stop $existing_containers
-    docker rm $existing_containers
-else
-    echo -e "${RED}\nNo existing containers found for the image nezha123/titan-edge.${NC}"
-fi
+echo -e "${YELLOW}Extracting Titan Edge...${NC}"
+tar -xzf titan-edge.tar.gz
+chmod +x titan-edge
 
-# Get user input
+# Move binary to /usr/local/bin for global access
+sudo mv titan-edge /usr/local/bin/
+
+# Ask for user inputs
 read -p "$(echo -e "${YELLOW}Enter your identity code: ${NC}")" id
 read -p "$(echo -e "${YELLOW}Please enter the number of nodes you want to create (max 5 per IP): ${NC}")" container_count
 read -p "$(echo -e "${YELLOW}Please enter the hard disk size limit for each node (in GB): ${NC}")" disk_size_gb
 
-# Validate inputs
-if [[ ! "$container_count" =~ ^[1-5]$ ]]; then
-    echo -e "${RED}Invalid number of nodes. Please enter a number between 1 and 5.${NC}"
-    exit 1
-fi
-
-if [[ ! "$disk_size_gb" =~ ^[0-9]+$ ]]; then
-    echo -e "${RED}Invalid disk size. Please enter a numeric value.${NC}"
-    exit 1
-fi
-
-# Default storage directory
-volume_dir="/mnt/docker_volumes"
+# Create and configure storage for each node
+volume_dir="/mnt/titan_volumes"
 mkdir -p $volume_dir
 
-echo -e "${YELLOW}Pulling the latest Titan Edge image...${NC}"
-docker pull nezha123/titan-edge
-
-# Loop to create multiple containers
 for i in $(seq 1 $container_count); do
     disk_size_mb=$((disk_size_gb * 1024))
     volume_path="$volume_dir/volume_$i.img"
-    mount_point="/mnt/my_volume_$i"
-    
+    mount_point="/mnt/titan_storage_$i"
+
     echo -e "${YELLOW}Creating storage volume for node $i...${NC}"
-    sudo dd if=/dev/zero of=$volume_path bs=1M count=$disk_size_mb
+    sudo dd if=/dev/zero of=$volume_path bs=1M count=$disk_size_mb status=progress
     sudo mkfs.ext4 $volume_path
     mkdir -p $mount_point
     sudo mount -o loop $volume_path $mount_point
     echo "$volume_path $mount_point ext4 loop,defaults 0 0" | sudo tee -a /etc/fstab
-    
-    container_id=$(docker run -d --restart always -v $mount_point:/root/.titanedge/storage --name "titan$i" nezha123/titan-edge)
-    echo -e "${YELLOW}Titan node $i has started with container ID $container_id${NC}"
-    sleep 30
-    docker exec -it $container_id bash -c "titan-edge bind --hash=$id https://api-test1.container1.titannet.io/api/v2/device/binding"
+
+    # Start Titan Edge node in a new screen session
+    screen -dmS titan_node_$i bash -c "titan-edge --storage-dir=$mount_point &"
+    echo -e "${GREEN}Titan node $i started in screen session 'titan_node_$i'${NC}"
+    sleep 5
+
+    # Bind the node
+    titan-edge bind --hash=$id https://api-test1.container1.titannet.io/api/v2/device/binding
 done
 
-# Completion message
-echo -e "${GREEN}All nodes have been successfully created!${NC}"
-echo -e "${YELLOW}To check the container status, use:${NC}"
-echo -e "${GREEN}docker ps -a${NC}"
+echo -e "${YELLOW}All nodes have been created successfully.${NC}"
+echo -e "${GREEN}To check node status, run: screen -ls${NC}"
 
+# Display closing message
 echo "==================================="
 echo -e "${YELLOW}           TopWebs       ${NC}"
 echo "==================================="
