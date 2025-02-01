@@ -47,13 +47,13 @@ if ! groups $USER | grep -q '\bdocker\b'; then
 fi
 
 # Remove existing Titan Edge containers
-existing_containers=$(docker ps -a --filter "ancestor=topwebs/titan-edge" --format "{{.ID}}")
+existing_containers=$(docker ps -a --filter "ancestor=nezha123/titan-edge" --format "{{.ID}}")
 if [ -n "$existing_containers" ]; then
-    echo -e "${YELLOW}\nStopping and removing existing containers using the image topwebs/titan-edge...${NC}"
+    echo -e "${YELLOW}\nStopping and removing existing containers using the image nezha123/titan-edge...${NC}"
     docker stop $existing_containers
     docker rm $existing_containers
 else
-    echo -e "${RED}\nNo existing containers found for the image topwebs/titan-edge.${NC}"
+    echo -e "${RED}\nNo existing containers found for the image nezha123/titan-edge.${NC}"
 fi
 
 # Get user input
@@ -77,7 +77,7 @@ volume_dir="/mnt/docker_volumes"
 mkdir -p $volume_dir
 
 echo -e "${YELLOW}Pulling the latest Titan Edge image...${NC}"
-docker pull topwebs/titan-edge
+docker pull nezha123/titan-edge
 
 # Loop to create multiple containers
 for i in $(seq 1 $container_count); do
@@ -92,7 +92,7 @@ for i in $(seq 1 $container_count); do
     sudo mount -o loop $volume_path $mount_point
     echo "$volume_path $mount_point ext4 loop,defaults 0 0" | sudo tee -a /etc/fstab
     
-    container_id=$(docker run -d --restart always -v $mount_point:/root/.titanedge/storage --name "titan$i" topwebs/titan-edge)
+    container_id=$(docker run -d --restart always -v $mount_point:/root/.titanedge/storage --name "titan$i" nezha123/titan-edge)
     echo -e "${YELLOW}Titan node $i has started with container ID $container_id${NC}"
     sleep 30
     docker exec -it $container_id bash -c "titan-edge bind --hash=$id https://api-test1.container1.titannet.io/api/v2/device/binding"
