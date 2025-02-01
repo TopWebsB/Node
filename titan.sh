@@ -36,17 +36,38 @@ for pkg in screen curl tar; do
     fi
 done
 
-# Download and extract the Titan Edge binary
+# Set variables
 TITAN_VERSION="v0.1.20"
 TITAN_URL="https://github.com/Titannet-dao/titan-node/releases/download/${TITAN_VERSION}/titan-edge_${TITAN_VERSION}_246b9dd_linux-amd64.tar.gz"
 
-echo -e "${YELLOW}Downloading Titan Edge from GitHub...${NC}"
-wget -q $TITAN_URL -O titan-edge.tar.gz
+# Download Titan Edge
+echo "Downloading Titan Edge..."
+wget -O titan-edge.tar.gz "$TITAN_URL"
 
-if [ $? -ne 0 ]; then
-    echo -e "${RED}Failed to download Titan Edge. Please check the URL.${NC}"
+# Verify download success
+if [ ! -f "titan-edge.tar.gz" ]; then
+    echo "Download failed! Exiting..."
     exit 1
 fi
+
+# Extract files
+echo "Extracting Titan Edge..."
+tar -xzf titan-edge.tar.gz
+
+# Locate the extracted binary
+TITAN_BINARY=$(find . -type f -name "titan-edge" | head -n 1)
+
+if [ -z "$TITAN_BINARY" ]; then
+    echo "Extraction failed! Titan Edge binary not found."
+    exit 1
+fi
+
+# Move to a global location
+chmod +x "$TITAN_BINARY"
+sudo mv "$TITAN_BINARY" /usr/local/bin/titan-edge
+
+echo "Titan Edge installed successfully!"
+titan-edge --version
 
 echo -e "${YELLOW}Extracting Titan Edge...${NC}"
 tar -xzf titan-edge.tar.gz
