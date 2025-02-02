@@ -28,7 +28,7 @@ sudo apt update -y && sudo apt upgrade -y
 
 # Install necessary dependencies
 echo -e "${YELLOW}Installing required dependencies...${NC}"
-sudo apt install -y screen curl wget tar apt-transport-https ca-certificates lsb-release gnupg2 software-properties-common
+sudo apt install -y screen curl wget tar apt-transport-https ca-certificates lsb-release gnupg2 software-properties-common libgomp1
 
 # Check if Docker is installed
 if ! command -v docker &> /dev/null; then
@@ -59,38 +59,47 @@ if ! groups $USER | grep -q '\bdocker\b'; then
     echo -e "${YELLOW}Please log out and log back in for group changes to take effect.${NC}"
 fi
 
-# Define Titan Edge version and URL
+# Download & install Titan Edge
+echo -e "${INFO}Downloading Titan Edge...${NC}"
 TITAN_VERSION="v0.1.20"
 TITAN_URL="https://github.com/Titannet-dao/titan-node/releases/download/${TITAN_VERSION}/titan-edge_${TITAN_VERSION}_246b9dd_linux-amd64.tar.gz"
+TITAN_ARCHIVE="titan-edge.tar.gz"
+INSTALL_DIR="/usr/local/bin"
 
-# Download Titan Edge
-echo -e "${YELLOW}Downloading Titan Edge...${NC}"
-wget -O titan-edge.tar.gz "$TITAN_URL"
+wget -O "$TITAN_ARCHIVE" "$TITAN_URL"
 
-# Verify download success
-if [ ! -f "titan-edge.tar.gz" ]; then
+# Verify download
+if [ ! -f "$TITAN_ARCHIVE" ]; then
     echo -e "${RED}Download failed! Exiting...${NC}"
     exit 1
 fi
 
 # Extract Titan Edge
-echo -e "${YELLOW}Extracting Titan Edge...${NC}"
-tar -xzf titan-edge.tar.gz
+echo -e "${INFO}Extracting Titan Edge...${NC}"
+tar -xzf "$TITAN_ARCHIVE" || { echo -e "${RED}Extraction failed!${NC}"; exit 1; }
 
-# Locate the extracted binary
+# Find the extracted binary
 TITAN_BINARY=$(find . -type f -name "titan-edge" | head -n 1)
 
 if [ -z "$TITAN_BINARY" ]; then
-    echo -e "${RED}Extraction failed! Titan Edge binary not found.${NC}"
+    echo -e "${RED}Titan Edge binary not found after extraction!${NC}"
     exit 1
 fi
 
-# Move Titan Edge to a global location
+# Make binary executable
 chmod +x "$TITAN_BINARY"
-sudo mv "$TITAN_BINARY" /usr/local/bin/titan-edge
+sudo mv "$TITAN_BINARY" "$INSTALL_DIR/titan-edge"
 
-echo -e "${GREEN}Titan Edge installed successfully!${NC}"
-titan-edge --version
+# Fix missing library issue
+echo -e "${INFO}Fixing shared library paths...${NC}"
+sudo ldconfig
+
+# Verify installation
+echo -e "${INFO}Verifying Titan Edge installation...${NC}"
+if ! command -v titan-edge &> /dev/null; then
+    echo -e "${RED}Titan Edge installation failed.${NC}"
+    exit 1
+fi
 
 # Ask user for input
 read -p "$(echo -e "${YELLOW}Enter your identity code: ${NC}")" id
@@ -126,6 +135,10 @@ for i in $(seq 1 $container_count); do
     sleep 30
     docker exec -it $container_id bash -c "titan-edge bind --hash=$id https://api-test1.container1.titannet.io/api/v2/device/binding"
 done
+
+# Start Titan Edge
+echo -e "${GREEN}Titan Edge installed successfully! Starting...${NC}"
+titan-edge --version || { echo -e "${RED}Titan Edge failed to start.${NC}"; exit 1; }
 
 echo -e "${GREEN}All nodes created successfully!${NC}"
 echo -e "${YELLOW}To check container status, run: docker ps -a${NC}"
