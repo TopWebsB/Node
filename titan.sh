@@ -61,12 +61,10 @@ fi
 
 # Download & install Titan Edge
 echo -e "${INFO}Downloading Titan Edge...${NC}"
-TITAN_VERSION="v0.1.20"
-TITAN_URL="https://github.com/Titannet-dao/titan-node/releases/download/${TITAN_VERSION}/titan-edge_${TITAN_VERSION}_246b9dd_linux-amd64.tar.gz"
 TITAN_ARCHIVE="titan-edge.tar.gz"
 INSTALL_DIR="/usr/local/bin"
 
-wget -O "$TITAN_ARCHIVE" "$TITAN_URL"
+wget -O "$TITAN_ARCHIVE" "https://objects.githubusercontent.com/github-production-release-asset-2e65be/627686633/10f47b24-9cb8-4a07-9d63-f9ed48e8e042"
 
 # Verify download
 if [ ! -f "$TITAN_ARCHIVE" ]; then
@@ -81,12 +79,12 @@ tar -xzf "$TITAN_ARCHIVE" || { echo -e "${RED}Extraction failed!${NC}"; exit 1; 
 # Find the extracted binary
 TITAN_BINARY=$(find . -type f -name "titan-edge" | head -n 1)
 
-if [ -z "$TITAN_BINARY" ]; then
+if [ ! -f "$TITAN_BINARY" ]; then
     echo -e "${RED}Titan Edge binary not found after extraction!${NC}"
     exit 1
 fi
 
-# Make binary executable
+# Move binary to the correct directory
 chmod +x "$TITAN_BINARY"
 sudo mv "$TITAN_BINARY" "$INSTALL_DIR/titan-edge"
 
@@ -100,6 +98,8 @@ if ! command -v titan-edge &> /dev/null; then
     echo -e "${RED}Titan Edge installation failed.${NC}"
     exit 1
 fi
+
+echo -e "${GREEN}Titan Edge installed successfully!${NC}"
 
 # Ask user for input
 read -p "$(echo -e "${YELLOW}Enter your identity code: ${NC}")" id
